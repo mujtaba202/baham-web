@@ -7,8 +7,10 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.middleware.csrf import get_token
 
-from baham.enum_types import VehicleStatus, VehicleType
-from baham.models import Vehicle, VehicleModel, validate_colour
+from baham.enum_types import VehicleStatus, VehicleType, UserType
+from baham.models import Vehicle, VehicleModel, validate_colour, UserProfile
+
+from django.core.serializers import serialize
 
 
 # Create your views here.
@@ -261,3 +263,150 @@ def delete_vehicle_model(request, uuid):
         return JsonResponse(response_data, status=200)
     else:
         return JsonResponse({'error': 'Invalid endpoint or method type'}, status=400)
+
+
+def get_all_user_profiles(request):
+    if request.method == 'GET':
+        users = UserProfile.objects.all().filter(voided=False)
+        print(users)
+        if users:
+            data = []
+            for user in users:
+                data.append({
+                    'uuid': user.uuid,
+                    'birthdate':user.birthdate,
+                    'gender':user.gender,
+                    'type':user.type,
+                    'primary_contact':user.primary_contact,
+                    'address':user.address,
+                    'town':user.town,
+                    'bio':user.bio,
+                    'date_created': user.date_created,
+                    'created_by': str(user.created_by),
+                })
+        else:
+            return JsonResponse({'error': 'User Profiles Empty'}, status=404)    
+    
+        return JsonResponse({"results": data}, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid  Request'}, status=400)
+
+
+def get_user_profile(request, uuid):
+    if request.method == 'GET':
+        user_model = UserProfile.objects.filter(uuid=uuid).first()
+        if  user_model:
+            data = {
+                'uuid': user_model.uuid,
+                'birthdate':user_model.birthdate,
+                'gender':user_model.gender,
+                'type':user_model.type,
+                'primary_contact':user_model.primary_contact,
+                'address':user_model.address,
+                'town':user_model.town,
+                'bio':user_model.bio,
+                'date_created': user_model.date_created,
+                'created_by': str(user_model.created_by),
+            }
+            return JsonResponse({'results': data}, status=200)
+        else:
+            return JsonResponse({'error': 'User Profile Empty'}, status=404)    
+    else:
+        return JsonResponse({'error': 'Invalid Request'}, status=400)
+
+
+def create_user_profile(request):
+    if request.method == 'POST': 
+        username = request.POST.get('username')
+        password = request.POST.get('pass')
+        birthdate = request.POST.get('birthdate')
+        gender = request.POST.get('gender')
+        type = request.POST.get('type')
+        primary_contact = request.POST.get('primary_contact')
+        alternate_contact = request.POST.get('alternate_contact')
+        address = request.POST.get('address')
+        address_latitude = request.POST.get('address_latitude')
+        address_longitude = request.POST.get('address_longitude')
+        landmark = request.POST.get('landmark')
+        town = request.POST.get('town')
+        active = request.POST.get('active')
+        bio = request.POST.get('bio')
+
+        user_profile = UserProfile.objects.create(
+            user = User.objects.create_user(username=username, password=password),
+            birthdate=birthdate,
+            gender=gender,
+            type=type,
+            primary_contact=primary_contact,
+            alternate_contact=alternate_contact,
+            address=address,
+            address_latitude=address_latitude,
+            address_longitude=address_longitude,
+            landmark=landmark,
+            town=town,
+            active=active,
+            bio=bio,
+        )
+
+        response_data = {
+            'message': 'User profile add',
+            'uuid': user_profile.uuid,
+        }
+        return JsonResponse(response_data, status=201)
+    else:
+        return JsonResponse({'error': 'Invalid Request'}, status=400)
+
+def update_user_profile(request, uuid):
+    if request.method == 'PUT':
+        params = QueryDict(request.body)
+        type = params.get('type')
+        primary_contact = params.get('primary_contact')
+        alternate_contact = params.get('alternate_contact')
+        address = params.get('address')
+        address_latitude = params.get('address_latitude')
+        address_longitude = params.get('address_longitude')
+        landmark = params.get('landmark')
+        town = params.get('town')
+        active = params.get('active')
+        userprofile_model = UserProfile.objects.filter(uuid=uuid).first()
+        if not userprofile_model:
+            response_data = {
+                'error': 'User detail null',
+            }
+            return JsonResponse(response_data, status=404)
+        userprofile_model.type = type
+        userprofile_model.primary_contact = primary_contact
+        userprofile_model.alternate_contact = alternate_contact
+        userprofile_model.address = address
+        userprofile_model.address_latitude = address_latitude
+        userprofile_model.address_longitude = address_longitude
+        userprofile_model.landmark = landmark
+        userprofile_model.town = town
+        userprofile_model.active = active
+        
+
+        userprofile_model.update()
+        response_data = {
+            'message': 'User Profile updated',
+            'uuid': userprofile_model.uuid,
+        }
+        return JsonResponse({"results":response_data}, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+def delete_user_profile(request, uuid):
+    if request.method == 'DELETE':
+        user_model = UserProfile.objects.filter(uuid=uuid).first()
+        if not user_model:
+            response_data = {
+                'error': 'User Profile detail null',
+            }
+            return JsonResponse(response_data, status=404)
+        user_model.delete()
+        response_data = {
+            'message': 'User Profile delete'
+        }
+        return JsonResponse(response_data, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid request'}, status=400)
